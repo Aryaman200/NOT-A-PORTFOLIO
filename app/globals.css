@@ -339,6 +339,16 @@
     scroll-margin-top: 3rem;
   }
 
+  /* BlockReveal hides its heading behind a bar that scripting sweeps away. With
+     no scripting the bar never moves, so the heading would stay invisible. The
+     text is in the HTML regardless — opacity 0 is still read by assistive tech
+     and indexed — so this restores the visual only. */
+  @media (scripting: none) {
+    [data-block-reveal-text] {
+      opacity: 1 !important;
+    }
+  }
+
   /* The native scrollbar is replaced by LiquidScroll. Scrolling itself is
      untouched — wheel, trackpad, keyboard, touch and drag-to-scrub all work;
      only the painted bar is gone. */

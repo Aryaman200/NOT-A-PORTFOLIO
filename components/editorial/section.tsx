@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Reveal, DrawRule } from "./reveal";
-import { TextReveal } from "./text-reveal";
+import { BlockReveal } from "./block-reveal";
 
 /**
  * The section scaffold: a rule, a title, a lead, then the content.
@@ -40,13 +40,9 @@ export function Section({
         <DrawRule />
 
         <header className="mt-12 flex flex-col gap-7 md:mt-16 md:flex-row md:items-end md:justify-between md:gap-20">
-          <TextReveal
-            as="h2"
-            className="font-display text-title text-balance"
-            stagger={0.055}
-          >
+          <BlockReveal as="h2" className="font-display text-title text-balance">
             {title}
-          </TextReveal>
+          </BlockReveal>
           {lead ? (
             <Reveal direction="up" delay={0.14}>
               <p className="max-w-[44ch] text-lead text-pretty text-muted-foreground md:pb-2">

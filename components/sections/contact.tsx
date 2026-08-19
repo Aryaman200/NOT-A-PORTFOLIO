@@ -1,7 +1,7 @@
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { contact, site } from "@/lib/content";
 import { Reveal } from "@/components/editorial/reveal";
-import { TextReveal } from "@/components/editorial/text-reveal";
+import { BlockReveal } from "@/components/editorial/block-reveal";
 import { Section } from "@/components/editorial/section";
 
 /**
@@ -21,13 +21,9 @@ export function Contact() {
           href={`mailto:${site.email}`}
           className="group inline-flex flex-col gap-7"
         >
-          <TextReveal
-            as="span"
-            className="font-display text-title"
-            stagger={0.05}
-          >
+          <BlockReveal as="span" className="font-display text-title">
             {contact.headline}
-          </TextReveal>
+          </BlockReveal>
           <Reveal direction="up" delay={0.2}>
             <span className="flex items-center gap-3 font-mono text-label uppercase text-signal">
               {site.email}
