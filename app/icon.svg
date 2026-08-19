@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!--
+    Three contour bands, the same device the hero terrain draws. Chosen over a
+    letterform because it stays a distinct silhouette at 16px, where a serif "A"
+    collapses into a wedge. Bone on ultramarine so it holds against both light
+    and dark browser chrome.
+  -->
+  <rect width="64" height="64" rx="14" fill="#2436d8" />
+  <g fill="none" stroke="#f4f2ec" stroke-linecap="round" stroke-width="5">
+    <path d="M13 41c7-11 12-11 19 0s12 11 19 0" />
+    <path d="M13 27c7-11 12-11 19 0" opacity="0.55" />
+  </g>
+</svg>

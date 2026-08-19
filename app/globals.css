@@ -1,0 +1,381 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   Design system — two palettes, one scale.
+
+   SHELL  (:root)  light editorial. Home, index pages.
+   LAB    (.dark)  dark instrument panel. /work/* case studies.
+
+   Only colour and density change between them. The type scale,
+   spacing rhythm and radii are shared, so the two halves read as
+   one system rather than two sites.
+   ============================================================ */
+
+@theme inline {
+  /* --- shadcn token bridge (required by components/ui/*) --- */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* --- brand tokens --- */
+  --color-signal: var(--signal);
+  --color-signal-soft: var(--signal-soft);
+  --color-amber: var(--amber);
+  --color-hairline: var(--hairline);
+  --color-hairline-soft: var(--hairline-soft);
+
+  /* --- type --- */
+  --font-display: var(--font-instrument-serif), Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+  --font-heading: var(--font-instrument-serif), Georgia, serif;
+
+  /* shared scale — identical in shell and lab */
+  /* Hero only. Pushed past the usual display ceiling deliberately: the name is
+     the loudest thing on the site and everything else is quiet so it can be.
+     Tracking stops at -0.04em — the floor before the counters start closing at
+     800 weight. */
+  --text-display: clamp(3.75rem, 11.5vw, 11rem);
+  --text-display--line-height: 0.86;
+  --text-display--letter-spacing: -0.04em;
+  --text-title: clamp(2rem, 4.5vw, 3.75rem);
+  --text-title--line-height: 0.98;
+  --text-title--letter-spacing: -0.02em;
+  --text-heading: clamp(1.25rem, 1.6vw, 1.625rem);
+  --text-heading--line-height: 1.2;
+  --text-lead: clamp(1rem, 1.15vw, 1.1875rem);
+  --text-lead--line-height: 1.6;
+  --text-label: 0.6875rem;
+  --text-label--line-height: 1.4;
+  --text-label--letter-spacing: 0.14em;
+  --text-micro: 0.625rem;
+  --text-micro--line-height: 1.4;
+  --text-micro--letter-spacing: 0.18em;
+
+  /* editorial column rhythm */
+  --spacing-gutter: 7vw;
+  --spacing-section: clamp(6rem, 12vh, 10rem);
+
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) * 2);
+  --radius-xl: calc(var(--radius) * 3);
+}
+
+/* ---------------- SHELL — light editorial ----------------
+   Ink & ultramarine. Bone ground rather than white, a saturated blue
+   accent, ochre as the secondary. Reads drafting-table rather than
+   dev-portfolio, and the blue sits naturally with the geospatial work.
+
+   Verified against the bone ground: ink 17.2:1, ultramarine 7.2:1,
+   ochre 5.3:1, muted 5.1:1. All clear AA for body text. */
+:root {
+  --radius: 0.25rem;
+
+  --background: #f4f2ec; /* bone, not paper-white */
+  --foreground: #0e0f12; /* ink, faintly blue-black */
+  --card: #fbfaf6;
+  --card-foreground: #0e0f12;
+  --popover: #fbfaf6;
+  --popover-foreground: #0e0f12;
+
+  --primary: #2436d8; /* ultramarine */
+  --primary-foreground: #f4f2ec;
+  --secondary: #e8e5dc;
+  --secondary-foreground: #0e0f12;
+  --muted: #e8e5dc;
+  --muted-foreground: #63666e;
+  --accent: #e3e5f7;
+  --accent-foreground: #2436d8;
+  --destructive: #b4342a;
+
+  --border: #d9d5ca;
+  --input: #d9d5ca;
+  --ring: #2436d8;
+
+  --signal: #2436d8;
+  --signal-soft: #e6e8f8;
+  --amber: #8a5a1b; /* ochre — the warm counterweight to the blue */
+  --hairline: #cbc7bb;
+  --hairline-soft: #e2ded3;
+
+  --chart-1: #2436d8;
+  --chart-2: #8a5a1b;
+  --chart-3: #3f5666;
+  --chart-4: #63666e;
+  --chart-5: #0e0f12;
+
+  --sidebar: #efece5;
+  --sidebar-foreground: #0e0f12;
+  --sidebar-primary: #2436d8;
+  --sidebar-primary-foreground: #f4f2ec;
+  --sidebar-accent: #e3e5f7;
+  --sidebar-accent-foreground: #2436d8;
+  --sidebar-border: #d9d5ca;
+  --sidebar-ring: #2436d8;
+}
+
+/* ---------------- LAB — dark instrument panel ----------------
+   The same hue rotated into the dark: navy-black ground, periwinkle
+   signal. Verified on the ground: foreground 16.6:1, periwinkle 6.7:1,
+   muted 9.0:1. */
+.dark {
+  --background: #070912;
+  --foreground: #e8eaf2;
+  --card: #0c0f1c;
+  --card-foreground: #e8eaf2;
+  --popover: #0e1120;
+  --popover-foreground: #e8eaf2;
+
+  --primary: #7c8cff;
+  --primary-foreground: #05070f;
+  --secondary: #0e1120;
+  --secondary-foreground: #e8eaf2;
+  --muted: #0e1120;
+  --muted-foreground: #a8aec4;
+  --accent: #171b31;
+  --accent-foreground: #7c8cff;
+  --destructive: #ff5a6e;
+
+  --border: color-mix(in srgb, #7c8cff 16%, transparent);
+  --input: color-mix(in srgb, #7c8cff 22%, transparent);
+  --ring: #7c8cff;
+
+  --signal: #7c8cff;
+  --signal-soft: #171b31;
+  --amber: #f5b563;
+  --hairline: color-mix(in srgb, #7c8cff 16%, transparent);
+  --hairline-soft: color-mix(in srgb, #7c8cff 8%, transparent);
+
+  --chart-1: #7c8cff;
+  --chart-2: #f5b563;
+  --chart-3: #6fd8c8;
+  --chart-4: #8e93ad;
+  --chart-5: #4a5480;
+
+  --sidebar: #090c17;
+  --sidebar-foreground: #e8eaf2;
+  --sidebar-primary: #7c8cff;
+  --sidebar-primary-foreground: #05070f;
+  --sidebar-accent: #171b31;
+  --sidebar-accent-foreground: #7c8cff;
+  --sidebar-border: color-mix(in srgb, #7c8cff 16%, transparent);
+  --sidebar-ring: #7c8cff;
+}
+
+/* At xl the fixed section index moves into the left gutter, so the gutter has
+   to be wide enough to hold it — including its hover labels — without ever
+   overlapping the text column. Below xl the index is hidden and 7vw is right. */
+@media (min-width: 80rem) {
+  :root {
+    --spacing-gutter: clamp(9rem, 7vw, 12rem);
+  }
+}
+
+/* ============================================================
+   Interactive chrome — "press"
+
+   One mechanic for everything the reader can act on: a solid
+   hairline box at rest, and on hover or keyboard focus the
+   accent rises from the bottom edge and the type knocks out to
+   the ground colour. Ink hitting paper, not a glow.
+
+   The fill is a pseudo-element scaled 0 -> 1 from a bottom
+   origin, not a 1px line scaled by a magic factor — that
+   version lands short on any element whose height it was not
+   tuned for, leaving knocked-out type on an unfilled ground.
+
+   Everything resolves from tokens, so the same class works on
+   the bone ground and inside the dark chapters without a
+   variant: --signal and --background both flip under .dark.
+
+   These rules are deliberately NOT in @layer components. Tailwind
+   utilities live in @layer utilities, and any layer beats an
+   earlier one — so `text-signal` on a .press element kept its
+   blue on hover and the label vanished into the blue fill.
+   Unlayered rules outrank every layer, so the knockout wins.
+
+   Static labels never use this. They carry no box at all — see
+   .tag-run below. A reader should be able to tell what responds
+   without hovering it.
+   ============================================================ */
+.press {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  transition:
+    border-color 0.2s ease,
+    color 0.16s 0.06s ease;
+}
+
+.press::after {
+  content: "";
+  position: absolute;
+  /* -1px so the fill covers the border box, not just the padding box */
+  inset: -1px;
+  border-radius: inherit;
+  background: var(--signal);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: -1;
+}
+
+.press:hover,
+.press:focus-visible {
+  border-color: var(--signal);
+  color: var(--background);
+  /* The full colour inversion is the focus indicator — unmistakably
+     stronger than a ring, and it makes keyboard and pointer identical. */
+  outline: none;
+}
+
+.press:hover::after,
+.press:focus-visible::after {
+  transform: scaleY(1);
+}
+
+/* Primary actions sit at ink weight at rest so they read first. */
+.press-strong {
+  border-color: var(--foreground);
+}
+
+/* Text links: a rule draws in from the left on the same curve as the
+   press fill, so the two read as one family rather than two ideas. */
+.nav-link {
+  position: relative;
+}
+
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-link:hover::after,
+.nav-link:focus-visible::after {
+  transform: scaleX(1);
+}
+
+/* Static labels: a mono run with hairline separators. Boxing these
+   made every stack list look like four controls. */
+.tag-run {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+/* The separator trails each item rather than leading the next one. Leading
+   separators look correct on one line and wrong the moment the run wraps —
+   the second line then opens with a stray rule. */
+.tag-run > *:not(:last-child)::after {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: 0.7em;
+  margin: 0 0.7em;
+  vertical-align: -0.03em;
+  background: var(--hairline);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    overflow-x: clip;
+  }
+
+  /* Settling onto section starts is handled by SectionSettle, not by
+     scroll-snap. The CSS proximity threshold is browser-chosen and measured at
+     roughly four pixels of pull from 100px out — real, but imperceptible. */
+  main > section {
+    scroll-margin-top: 3rem;
+  }
+
+  /* The native scrollbar is replaced by LiquidScroll. Scrolling itself is
+     untouched — wheel, trackpad, keyboard, touch and drag-to-scrub all work;
+     only the painted bar is gone. */
+  html {
+    scrollbar-width: none;
+  }
+  html::-webkit-scrollbar {
+    display: none;
+  }
+  ::selection {
+    background: var(--signal);
+    color: var(--primary-foreground);
+  }
+  /* mono runs at small sizes throughout — kill the ligatures that
+     make version strings and coordinates hard to read */
+  .font-mono,
+  code,
+  kbd,
+  pre {
+    font-variant-ligatures: none;
+    font-feature-settings: "calt" 0;
+  }
+}
+
+/* Reduced motion is honoured globally. v2 explicitly defeated this
+   (`this.RM = false`, "motion is core"); that was an accessibility
+   regression and is not carried forward. Motion stills, nothing is
+   removed — every feature stays reachable. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
