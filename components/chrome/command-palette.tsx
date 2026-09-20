@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowUpRight,
   Check,
@@ -46,6 +47,9 @@ export default function CommandPalette({
   onOpenChange: (open: boolean) => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const onHome = pathname === "/";
 
   /** Close first, then act — otherwise the dialog's focus trap fights the jump. */
   const run = useCallback(
@@ -56,11 +60,31 @@ export default function CommandPalette({
     [onOpenChange],
   );
 
-  const goTo = useCallback((id: string) => {
-    document.getElementById(id)?.scrollIntoView({ block: "start" });
-    // Keep the URL honest so the entry is shareable and Back works.
-    history.replaceState(null, "", `#${id}`);
-  }, []);
+  /**
+   * Section jumps. The palette is mounted on every route, and the sections only
+   * exist on the home page — from a case study the same entry has to navigate
+   * home and land on the fragment rather than silently do nothing.
+   */
+  const goTo = useCallback(
+    (id: string) => {
+      if (!onHome) {
+        router.push(`/#${id}`, { transitionTypes: ["nav-back"] });
+        return;
+      }
+      document.getElementById(id)?.scrollIntoView({ block: "start" });
+      // Keep the URL honest so the entry is shareable and Back works.
+      history.replaceState(null, "", `#${id}`);
+    },
+    [onHome, router],
+  );
+
+  /** Work entries open the case study now, not the chapter anchor. */
+  const openCase = useCallback(
+    (slug: string) => {
+      router.push(`/work/${slug}`, { transitionTypes: ["nav-forward"] });
+    },
+    [router],
+  );
 
   const copyEmail = useCallback(async () => {
     try {
@@ -94,7 +118,7 @@ export default function CommandPalette({
               <CommandItem
                 key={project.slug}
                 value={`${project.title} ${project.stack.join(" ")}`}
-                onSelect={() => run(() => goTo(project.slug))}
+                onSelect={() => run(() => openCase(project.slug))}
               >
                 <FileText />
                 <span>{project.title}</span>

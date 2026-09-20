@@ -268,7 +268,7 @@ export default function TrafficGrid() {
       />
 
       <div className="flex flex-wrap items-center gap-x-8 gap-y-4 font-mono text-micro uppercase">
-        <label className="flex items-center gap-3">
+        <label data-cursor="Adjust" className="flex items-center gap-3">
           <span className="text-muted-foreground">Density</span>
           <input
             type="range"
@@ -281,7 +281,7 @@ export default function TrafficGrid() {
           <span className="w-6 tabular-nums text-foreground">{density}</span>
         </label>
 
-        <label className="flex cursor-pointer items-center gap-2.5">
+        <label data-cursor="Toggle" className="flex cursor-pointer items-center gap-2.5">
           <input
             type="checkbox"
             checked={adaptive}

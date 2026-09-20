@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { TERRAIN_READY_EVENT } from "@/lib/entrance";
 
 /**
  * Scroll-scrubbed terrain flythrough.
@@ -62,6 +63,20 @@ export default function TerrainField({
       "(prefers-reduced-motion: reduce)",
     ).matches;
 
+    /**
+     * Tells the entrance that there is now something on screen to rise over.
+     *
+     * Fired on the first drawn frame — and also when there will never be one,
+     * because "no WebGL" is an answer the entrance can act on immediately. The
+     * alternative is waiting out the full cap for a frame that is not coming.
+     */
+    let announced = false;
+    const announce = () => {
+      if (announced) return;
+      announced = true;
+      window.dispatchEvent(new Event(TERRAIN_READY_EVENT));
+    };
+
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
@@ -72,7 +87,9 @@ export default function TerrainField({
       });
     } catch {
       // No WebGL. The hero is designed to read without this layer, so the
-      // correct behaviour is to leave the canvas empty and say nothing.
+      // correct behaviour is to leave the canvas empty and say nothing — but
+      // the entrance is waiting on a frame that will never arrive, so tell it.
+      announce();
       return;
     }
 
@@ -93,10 +110,24 @@ export default function TerrainField({
     camera.rotation.order = "YXZ";
 
     const SIZE = 660;
-    // 72 segments is 5,329 vertices re-evaluated ~14 times a second. Phones get
-    // a coarser mesh: at this opacity and fog depth the difference is not
-    // visible, and it is the largest single saving available here.
-    const SEG = window.innerWidth < 768 ? 44 : 72;
+
+    /**
+     * The mobile budget.
+     *
+     * The terrain is kept on phones rather than swapped for a static image —
+     * the live ground is the point of the first screen and a picture of it is
+     * not the same thing. What changes is how much work it costs to draw.
+     *
+     * 72 segments is 5,329 vertices re-evaluated ~14 times a second. At 28 it
+     * is 841, an 84% cut in the per-rebuild loop, and the rebuild itself runs
+     * at ~9fps instead of ~14. At this opacity and fog depth, on a screen this
+     * size, the coarser mesh is not distinguishable — the saving is free.
+     */
+    const mobile = window.innerWidth < 768;
+    const SEG = mobile ? 28 : 72;
+    /** ms between height-field rebuilds. The render stays at full rate. */
+    const REBUILD_MS = mobile ? 110 : 70;
+    const DUST = mobile ? 70 : 140;
     const geometry = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
     geometry.rotateX(-Math.PI / 2);
 
@@ -147,7 +178,6 @@ export default function TerrainField({
     mesh.frustumCulled = false;
     scene.add(mesh);
 
-    const DUST = 140;
     const dustPositions = new Float32Array(DUST * 3);
     for (let i = 0; i < DUST; i++) {
       dustPositions[i * 3] = (Math.random() - 0.5) * 620;
@@ -191,6 +221,7 @@ export default function TerrainField({
       placeCamera(0.55, 0);
       canvas.style.opacity = "0.5";
       renderer.render(scene, camera);
+      announce();
       window.addEventListener("resize", resize);
       return () => {
         window.removeEventListener("resize", resize);
@@ -226,12 +257,13 @@ export default function TerrainField({
       // rate. The flow is slow enough that the difference is invisible, and it
       // keeps a 5,300-vertex rebuild off most frames.
       const offset = scrollY * 0.05 + seconds * 7;
-      if (now - lastRebuild > 70) {
+      if (now - lastRebuild > REBUILD_MS) {
         lastRebuild = now;
         rebuild(offset);
       }
 
       renderer.render(scene, camera);
+      announce();
 
       const born_in = Math.min(1, (now - born) / 1100);
       // Settles to an ambient level once the dive completes and stays there for
@@ -262,6 +294,20 @@ export default function TerrainField({
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
+    // `focus` is insurance, not duplication. Applying the visibility state at
+    // setup (below) means a page that loads hidden starts paused — and a paused
+    // terrain that never receives a `visibilitychange` would stay dead for the
+    // whole session. Every real browser fires that event when a tab comes
+    // forward, but a second, independent way back to running costs one listener
+    // and removes the failure mode entirely. `onVisibility` is idempotent, so
+    // both firing is harmless.
+    window.addEventListener("focus", onVisibility);
+    // `visibilitychange` only fires on a *change*. A page opened in a background
+    // tab — a link middle-clicked, or a session restored — is already hidden
+    // when this runs, so the event never arrives and the loop would render at
+    // full rate against a tab nobody is looking at. Applying the current state
+    // once at setup is what makes the pause cover the case it was written for.
+    onVisibility();
 
     const onContextLost = (event: Event) => {
       event.preventDefault();
@@ -277,6 +323,7 @@ export default function TerrainField({
       running = false;
       cancelAnimationFrame(frame);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onVisibility);
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("webglcontextlost", onContextLost);
       geometry.dispose();

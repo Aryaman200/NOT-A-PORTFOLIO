@@ -12,7 +12,17 @@ import { CommandTrigger } from "./command-trigger";
  */
 export function SiteHeader() {
   return (
-    <header className="fixed inset-x-0 top-0 z-40 border-b border-hairline-soft bg-background/80 backdrop-blur-md">
+    // The name pairs this with the case-study header so the bar stays put
+    // through a route slide instead of travelling with the content. See the
+    // `site-header` rules in globals.css.
+    <header
+      // Rises with the name when the opening curtain lifts. Stage 1 rather than
+      // 2: the bar and the name are one move, and a header arriving separately
+      // from the thing it sits above reads as two page loads.
+      data-entrance-stage="1"
+      style={{ viewTransitionName: "site-header" }}
+      className="fixed inset-x-0 top-0 z-40 border-b border-hairline-soft bg-background/80 backdrop-blur-md"
+    >
       <div className="flex h-12 items-center gap-6 px-gutter">
         <Link
           href="#intro"

@@ -11,10 +11,10 @@ export function SiteFooter() {
         </p>
         <p className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <a
-            href={site.links.github}
+            href={site.links.source}
             target="_blank"
             rel="noopener noreferrer"
-            className="transition-colors hover:text-foreground"
+            className="nav-link transition-colors hover:text-foreground"
           >
             Source
           </a>

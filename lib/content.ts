@@ -20,6 +20,14 @@ export const site = {
   links: {
     linkedin: "https://www.linkedin.com/in/aryaman-bhardwaj-7a0507330",
     github: "https://github.com/Aryaman200",
+    /**
+     * This site's own repository.
+     *
+     * The footer link labelled "Source" pointed at the profile above, which is
+     * an index of repositories and not the source of anything. A reader who
+     * follows a link called Source expects the code for the page they are on.
+     */
+    source: "https://github.com/Aryaman200/NOT-A-PORTFOLIO",
     /** Hosted, not a PDF in public/ — it stays current without a redeploy. */
     resume: "https://resumelink.co/aryaman",
   },
@@ -126,10 +134,15 @@ export const timeline = [
     body: "Quantum kernels on cybersecurity datasets. The useful result was negative as often as positive, which is the point of running the experiment.",
   },
   {
+    // The institution is deliberately unnamed, so this slot carries the
+    // qualification rather than a placeholder. It previously read "Final year",
+    // which is a status and not an organisation — it also had nowhere to point
+    // once the page started emitting `alumniOf` structured data, which is why
+    // that property is omitted rather than filled with something false.
     period: "2023 — 2026",
     title: "B.Tech, Computer Science (AI & ML)",
-    org: "Final year",
-    body: "Machine learning, systems and mathematics, alongside the projects above.",
+    org: "Undergraduate degree",
+    body: "Machine learning, systems and mathematics, alongside the projects above. Final year.",
   },
 ] as const;
 
@@ -151,22 +164,22 @@ export const skills: ReadonlyArray<{
     capability: "Language models & NLP",
     tools: ["Transformers", "RAG", "Bhashini stack"],
     evidence: [
-      { label: "Nyay", href: "#nyay" },
-      { label: "God's Eye", href: "#gods-eye" },
+      { label: "Nyay", href: "/work/nyay" },
+      { label: "God's Eye", href: "/work/gods-eye" },
     ],
   },
   {
     capability: "Geospatial & 3D",
     tools: ["Three.js", "WebGL", "Maps SDK"],
     evidence: [
-      { label: "God's Eye", href: "#gods-eye" },
-      { label: "Convoy Mode", href: "#convoy-mode" },
+      { label: "God's Eye", href: "/work/gods-eye" },
+      { label: "Convoy Mode", href: "/work/convoy-mode" },
     ],
   },
   {
     capability: "Computer vision",
     tools: ["PyTorch", "OpenCV"],
-    evidence: [{ label: "Adaptive Traffic", href: "#adaptive-traffic" }],
+    evidence: [{ label: "Adaptive Traffic", href: "/work/adaptive-traffic" }],
   },
   {
     capability: "Quantum machine learning",
@@ -177,16 +190,16 @@ export const skills: ReadonlyArray<{
     capability: "Full-stack engineering",
     tools: ["FastAPI", "React", "TypeScript", "Postgres", "Docker"],
     evidence: [
-      { label: "God's Eye", href: "#gods-eye" },
-      { label: "Nyay", href: "#nyay" },
+      { label: "God's Eye", href: "/work/gods-eye" },
+      { label: "Nyay", href: "/work/nyay" },
     ],
   },
   {
     capability: "Simulation & data visualisation",
     tools: ["Canvas", "D3", "Python"],
     evidence: [
-      { label: "Adaptive Traffic", href: "#adaptive-traffic" },
-      { label: "Convoy Mode", href: "#convoy-mode" },
+      { label: "Adaptive Traffic", href: "/work/adaptive-traffic" },
+      { label: "Convoy Mode", href: "/work/convoy-mode" },
     ],
   },
 ];

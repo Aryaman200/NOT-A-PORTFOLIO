@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Serif, Inter, JetBrains_Mono } from "next/font/google";
 import ClickSpark from "@/components/reactbits/ClickSpark";
+import { Cursor } from "@/components/chrome/cursor";
 import { PaletteMount } from "@/components/chrome/palette-mount";
+import { ENTRANCE_INLINE_SCRIPT } from "@/lib/entrance";
 import { SITE_URL } from "@/lib/site-url";
 import "./globals.css";
 
@@ -58,17 +60,58 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      // The entrance script writes `data-entrance` on this element before React
+      // hydrates, which React reports as a mismatch it will not patch up. The
+      // attribute is deliberately client-only — it depends on sessionStorage,
+      // the pathname and a media query, none of which the server can know — so
+      // the mismatch is the design, not a defect. Suppression is one level deep
+      // and does not reach any child.
+      suppressHydrationWarning
       // globals.css sets `scroll-behavior: smooth`; this attribute tells Next to
       // suppress it during route transitions rather than animating a scroll
       // through the whole page.
       data-scroll-behavior="smooth"
       className={`${display.variable} ${sans.variable} ${mono.variable} h-full`}
     >
+      <head>
+        {/* Sets the opening hold before first paint. It has to run here and
+            block: doing it from a React effect paints the writing and then
+            hides it, which is a flash rather than an entrance. The script is a
+            constant in lib/entrance.ts — no interpolation, nothing from a
+            request — so there is no injection surface. */}
+        <script dangerouslySetInnerHTML={{ __html: ENTRANCE_INLINE_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col">
+        {/* First tab stop on every page. Without it a keyboard reader has to
+            traverse the whole header before reaching content, and on the home
+            page the content is ~9,600px of pinned chapters after that. */}
+        <a
+          href="#main"
+          className="skip-link press font-mono text-label uppercase"
+        >
+          Skip to content
+        </a>
+        {/* Position indicator for the cases the liquid rail cannot serve —
+            phones, where it is hidden, and reduced motion, where it freezes. */}
+        <div aria-hidden className="scroll-progress" />
         {children}
-        {/* Viewport-fixed, pointer-events-none, idle until a click. Mounted at
-            the root so it follows the reader through both grounds. */}
-        <ClickSpark />
+        {/* Both are viewport-fixed, pointer-events-none and idle until the
+            reader does something, and both are mounted at the root so they
+            follow through the shell and the lab alike. The spark is the
+            cursor's click feedback rather than a separate effect — see the
+            note in ClickSpark. */}
+        <Cursor />
+        {/* Tuned to the cursor dot rather than to the defaults: the sparks
+            start at the dot's own edge (it is 8px across) and clear quickly,
+            so a click reads as that dot breaking rather than as a separate
+            effect that happens to fire at the same coordinates. The colour
+            already follows `--signal`, which is the same token the dot uses. */}
+        <ClickSpark
+          sparkRadius={10}
+          sparkSize={7}
+          lineWidth={1.25}
+          duration={380}
+        />
         {/* Reachable with Cmd/Ctrl+K from anywhere. Only the keybinding ships
             on first load; the palette itself arrives on first open. */}
         <PaletteMount />

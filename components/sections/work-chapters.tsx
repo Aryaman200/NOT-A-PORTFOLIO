@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, ViewTransition } from "react";
+import Link from "next/link";
 import {
   motion,
   useReducedMotion,
   useScroll,
   useTransform,
 } from "motion/react";
+import { ArrowRight } from "lucide-react";
 import { projects, type Project } from "@/lib/projects";
 import { Artifact } from "@/components/lab/artifact";
 
@@ -73,8 +75,11 @@ function Chapter({ project, index }: { project: Project; index: number }) {
       aria-label={project.title}
       // Shorter on phones: the pin window only needs to be long enough to read
       // the caption, and 210vh of scroll per project is punishing on a device
-      // where each swipe covers less ground.
-      className="relative h-[150vh] md:h-[210vh]"
+      // where each swipe covers less ground. Four chapters at 150vh was six
+      // screens of pinned scrolling before Capabilities; 120vh still clears the
+      // caption reveal, which finishes at 36% of the window, with room to play
+      // with an interactive artifact before the chapter closes.
+      className="relative h-[120vh] md:h-[210vh]"
     >
       <div className="sticky top-0 h-dvh overflow-hidden">
         <motion.div
@@ -100,10 +105,23 @@ function Chapter({ project, index }: { project: Project; index: number }) {
               </motion.header>
 
               {/* The artifact is the content. It runs whether or not the caption
-                  is showing, so the chapter is never an empty frame. */}
-              <div className="min-h-0 flex-1">
-                <Artifact id={project.artifact} />
-              </div>
+                  is showing, so the chapter is never an empty frame.
+
+                  It is also the morph target: the case study at /work/<slug>
+                  names the same element, so the canvas travels into the case
+                  hero rather than the two pages swapping. `default="none"` keeps
+                  it from crossfading during navigations it has nothing to do
+                  with — without it every named element animates on every
+                  transition. */}
+              <ViewTransition
+                name={`artifact-${project.slug}`}
+                share="morph"
+                default="none"
+              >
+                <div className="min-h-0 flex-1">
+                  <Artifact id={project.artifact} />
+                </div>
+              </ViewTransition>
 
               <motion.footer
                 style={
@@ -114,18 +132,43 @@ function Chapter({ project, index }: { project: Project; index: number }) {
                 <span aria-hidden className="h-px w-full bg-hairline" />
                 <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between md:gap-16">
                   <div className="flex flex-col gap-2.5">
-                    <h3 className="font-display text-title text-balance">
-                      {project.title}
-                    </h3>
+                    <ViewTransition
+                      name={`title-${project.slug}`}
+                      share="morph"
+                      default="none"
+                    >
+                      <h3 className="font-display text-title text-balance">
+                        {project.title}
+                      </h3>
+                    </ViewTransition>
                     <p className="max-w-[58ch] text-lead text-pretty text-muted-foreground">
                       {project.tagline}
                     </p>
                   </div>
-                  <ul className="tag-run gap-y-1.5 font-mono text-micro uppercase text-muted-foreground">
-                    {project.stack.map((tech) => (
-                      <li key={tech}>{tech}</li>
-                    ))}
-                  </ul>
+
+                  <div className="flex flex-col items-start gap-5 md:items-end">
+                    {/* The way into the written argument. A discrete control
+                        rather than a clickable frame: two of these artifacts
+                        have sliders and checkboxes in them, and a full-frame
+                        link would navigate on every attempt to use one. */}
+                    <Link
+                      href={`/work/${project.slug}`}
+                      data-cursor="Open"
+                      transitionTypes={["nav-forward"]}
+                      className="press press-strong group/case flex items-center gap-3 px-5 py-3.5 font-mono text-label uppercase"
+                    >
+                      Open case
+                      <ArrowRight
+                        aria-hidden
+                        className="size-3.5 transition-transform duration-500 group-hover/case:translate-x-0.5"
+                      />
+                    </Link>
+                    <ul className="tag-run gap-y-1.5 font-mono text-micro uppercase text-muted-foreground">
+                      {project.stack.map((tech) => (
+                        <li key={tech}>{tech}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </motion.footer>
             </div>
@@ -139,9 +182,13 @@ function Chapter({ project, index }: { project: Project; index: number }) {
 /**
  * 03 · Work.
  *
- * Four chapters, no case-study routes and no written write-ups. Each project
- * has a running artifact, and a live thing you can interact with argues better
- * than four hundred words about it.
+ * Four chapters. Each project has a running artifact, and a live thing you can
+ * interact with argues better than four hundred words about it — so the chapter
+ * leads with the artifact and says almost nothing.
+ *
+ * The written argument is no longer absent, it is one level down: each chapter
+ * opens into /work/<slug>, and the artifact morphs into that page's hero rather
+ * than the two swapping. The chapter is the claim; the case is the evidence.
  */
 export function WorkChapters() {
   return (

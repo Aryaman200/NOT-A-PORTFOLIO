@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useReducedMotion } from "motion/react";
+import { RAIL_SCRUB_EVENT } from "./liquid-scroll";
 
 /**
  * Light settling onto section starts.
@@ -123,11 +124,28 @@ export function SectionSettle() {
       quietTimer = setTimeout(settle, QUIET);
     };
 
+    /**
+     * A scroll-rail keypress stands the settle down entirely, rather than
+     * aborting it.
+     *
+     * `abort` re-arms on a 120ms timer, which is correct for a wheel or a
+     * trackpad — you stop, and the page comes to rest on the nearest edge. It is
+     * wrong for someone arrow-keying the rail: they press, the settle cancels,
+     * and 120ms later it drags them back to where they were scrubbing away from.
+     * The scrub would be undone, not interrupted, and holding the key would
+     * fight the settle the whole way down.
+     */
+    const standDown = () => {
+      cancel();
+      clearTimeout(quietTimer);
+    };
+
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("wheel", abort, { passive: true });
     window.addEventListener("touchstart", abort, { passive: true });
     window.addEventListener("keydown", abort);
     window.addEventListener("pointerdown", abort);
+    window.addEventListener(RAIL_SCRUB_EVENT, standDown);
 
     return () => {
       cancel();
@@ -137,6 +155,7 @@ export function SectionSettle() {
       window.removeEventListener("touchstart", abort);
       window.removeEventListener("keydown", abort);
       window.removeEventListener("pointerdown", abort);
+      window.removeEventListener(RAIL_SCRUB_EVENT, standDown);
     };
   }, [reduceMotion]);
 

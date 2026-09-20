@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useReducedMotion } from "motion/react";
-import { sections } from "@/lib/content";
+import { gooFloor, gooMatrix, type GooFilter } from "@/lib/goo";
 
 /**
  * The scrollbar, replaced by a small liquid.
@@ -23,10 +23,17 @@ import { sections } from "@/lib/content";
  * rather than guessed at. The matrix maps alpha `a` to `26a - 12`, so the
  * rendered surface is the `a ≈ 0.46` isocontour. For two blurred discs of
  * radius `r` at centre distance `d`, midpoint alpha is `erfc((d/2 - r) / (σ√2))`,
- * which crosses 0.46 at `d ≈ 2r + 4.8`. With `r` between 3.6 and 6.2 that puts
- * the neck break at a 12–18px gap: under ~20px of total chain spread the three
+ * which crosses 0.46 at `d ≈ 2r + 4.8`. With `r` between 4.3 and 6.2 that puts
+ * the neck break at a 13–17px gap: under ~20px of total chain spread the three
  * read as one body, and past ~35px all three are visibly separate. Every
  * constant below was tuned against those two numbers rather than by eye.
+ *
+ * That derivation answered where two discs *weld*. It never asked where one
+ * disc stops rendering at all, and the answer — 3.78px here — sat above the old
+ * `MIN_R` of 3.6. So the tail was being drawn under the threshold and silently
+ * disappearing during any quick scroll, which looked like a dropped frame
+ * rather than the arithmetic error it was. `FLOOR_R` below closes that, and
+ * lib/goo.ts derives it from this same filter so the two cannot drift apart.
  *
  * Why a hand-rolled loop rather than springs: two `useSpring`s tuned to
  * different stiffnesses look like they should diverge, but they converge within
@@ -111,12 +118,52 @@ const KNEE = 26;
  * bottom opens the chain to ~115px without it, 56px with it.
  */
 const LINK = 28;
+
+/**
+ * This liquid's filter — thin and runny, where the pointer's is thick.
+ *
+ * The header's isocontour maths is the same maths lib/goo.ts derives the
+ * visibility floor from, so the two are now one source rather than a comment
+ * and a separately-tuned literal.
+ */
+const GOO: GooFilter = { sigma: 3.4, slope: 26, offset: 12 };
+
+/**
+ * The radius below which a droplet does not render at all.
+ *
+ * This file's header works out where two blurred discs weld; it never worked
+ * out where a *single* disc stops being visible. It is 3.78px here, and `MIN_R`
+ * was 3.6 — under the floor. With the mass shift and the squash on top, the
+ * tail reached an effective 1.4px, so the chain silently lost droplets during
+ * any fast scroll. Everything below is clamped to this.
+ */
+const FLOOR_R = gooFloor(GOO);
+
 const BASE_R = 6.2;
-const MIN_R = 3.6;
+/** Was 3.6, which was beneath `FLOOR_R`. Raised to sit just clear of it. */
+const MIN_R = Math.max(4.3, FLOOR_R);
+/**
+ * How much mass shifts to the lead as the chain opens. Was 0.45, which took the
+ * tail another 30% under an already-marginal radius.
+ */
+const MASS_SHIFT = 0.2;
 /** px of chain spread at which droplets reach their smallest radius */
 const FULL_SPREAD = 46;
 /** Frames of quiet after a splash before another can fire. */
 const SPLASH_COOLDOWN = 26;
+
+/**
+ * Fired by the rail when a key scrubs the page.
+ *
+ * SectionSettle aborts on any `keydown` and then re-arms 120ms later, so
+ * without this an arrow press on the rail would be cancelled *and then dragged
+ * back* to the nearest section start — the scrub silently undone rather than
+ * merely interrupted. The settle listens for this and stands down instead.
+ */
+export const RAIL_SCRUB_EVENT = "rail:scrub";
+
+const scrollMax = () =>
+  document.documentElement.scrollHeight - window.innerHeight;
 
 type Droplet = { y: number; vy: number; r: number; x: number; vx: number };
 type Splash = { y: number; dir: number; life: number };
@@ -145,7 +192,16 @@ export function LiquidScroll() {
     const span = height * (1 - RAIL_PAD * 2);
     const top = height * RAIL_PAD;
 
-    const blobs = group.querySelectorAll<SVGCircleElement>("[data-blob]");
+    // Selected by index rather than taken in document order. The circles are
+    // emitted tail-first so the lead paints on top, which makes document order
+    // the reverse of droplet order — indexing the NodeList wrote droplet 0's
+    // physics into the circle labelled 2. They are the same colour and merge
+    // under the filter, so it never looked wrong; it was only wrong, and it
+    // made every `data-blob` value a lie to anyone debugging this.
+    const blobs = PULL.map((_, i) =>
+      group.querySelector<SVGCircleElement>(`[data-blob="${i}"]`),
+    );
+    if (blobs.some((b) => !b)) return;
     const sparks = group.querySelectorAll<SVGCircleElement>("[data-spark]");
 
     const droplets: Droplet[] = PULL.map(() => ({
@@ -234,30 +290,41 @@ export function LiquidScroll() {
       for (let i = 0; i < droplets.length; i++) {
         const d = droplets[i];
         // Mass shifts to the lead as the chain opens, so the tail thins first.
-        const share = 1 - (i / droplets.length) * 0.45 * openness;
+        const share = 1 - (i / droplets.length) * MASS_SHIFT * openness;
         // Ambient swell, on a slower period than the drift so the two never
         // line up into an obvious loop.
         const calm = 1 - Math.min(1, Math.abs(d.vy) / 2.5);
         const swell = 1 + Math.sin(t * IDLE_HZ_2 + i * 1.3) * IDLE_SWELL * calm;
-        d.r = (BASE_R - (BASE_R - MIN_R) * openness) * share * swell;
+        // Floored: no combination of openness, mass shift and swell may take a
+        // droplet under the filter's visibility threshold.
+        d.r = Math.max(
+          FLOOR_R,
+          (BASE_R - (BASE_R - MIN_R) * openness) * share * swell,
+        );
       }
 
       for (let i = 0; i < blobs.length; i++) {
+        // Non-null: the guard above returned early if any were missing.
+        const blob = blobs[i]!;
         const d = droplets[i];
         // Squash across the axis of travel, so a moving droplet reads as
         // deforming rather than merely sliding. Same sqrt response as the sway,
         // and for the same reason: an earlier linear `|vy| / 46` was tuned
         // against page-scroll velocity rather than droplet velocity, so ordinary
         // scrolling produced a few percent of stretch and looked like nothing.
+        // Clamped: the across-axis may not take the droplet under `FLOOR_R`.
+        // Unclamped, `1 - squash` reached 0.55 and flattened even a full-size
+        // droplet to 3.4px — below the 3.78px this filter can render.
         const squash = 0.45 * Math.min(1, Math.sqrt(Math.abs(d.vy) / VREF));
-        const sx = (1 - squash).toFixed(3);
-        const sy = (1 + squash * 1.6).toFixed(3);
+        const across = Math.max(1 - squash, FLOOR_R / d.r);
+        const sx = across.toFixed(3);
+        const sy = (1 + (1 - across) * 1.6).toFixed(3);
         const x = CX + d.x;
         const y = d.y;
-        blobs[i].setAttribute("cx", x.toFixed(2));
-        blobs[i].setAttribute("cy", y.toFixed(2));
-        blobs[i].setAttribute("r", d.r.toFixed(2));
-        blobs[i].setAttribute(
+        blob.setAttribute("cx", x.toFixed(2));
+        blob.setAttribute("cy", y.toFixed(2));
+        blob.setAttribute("r", d.r.toFixed(2));
+        blob.setAttribute(
           "transform",
           `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${sx} ${sy}) translate(${(-x).toFixed(2)} ${(-y).toFixed(2)})`,
         );
@@ -284,6 +351,42 @@ export function LiquidScroll() {
     return () => cancelAnimationFrame(frame);
   }, [height, reduceMotion]);
 
+  /**
+   * Keep the reported position current.
+   *
+   * Written straight to the DOM rather than held in state: a re-render resets
+   * every circle to the `cx`/`cy`/`r` in the JSX, and the droplet loop only
+   * repairs that on the next frame — so a state update per scroll percent would
+   * strobe the liquid a hundred times down the page. This runs regardless of
+   * `reduceMotion`, because the value has to be right even when the droplets
+   * are not moving.
+   */
+  useEffect(() => {
+    const el = railRef.current;
+    if (!el) return;
+
+    let frame = 0;
+    const report = () => {
+      frame = 0;
+      const max = scrollMax();
+      const pct = max > 0 ? Math.round((window.scrollY / max) * 100) : 0;
+      el.setAttribute("aria-valuenow", String(pct));
+      el.setAttribute("aria-valuetext", `${pct}% through the page`);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(report);
+    };
+
+    report();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
   useEffect(() => {
     if (!dragging) return;
     const el = railRef.current;
@@ -295,8 +398,7 @@ export function LiquidScroll() {
         (clientY - rect.top - rect.height * RAIL_PAD) /
         (rect.height * (1 - RAIL_PAD * 2));
       const clamped = Math.max(0, Math.min(1, raw));
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      window.scrollTo({ top: clamped * max, behavior: "instant" });
+      window.scrollTo({ top: clamped * scrollMax(), behavior: "instant" });
     };
 
     const onMove = (event: PointerEvent) => scrubTo(event.clientY);
@@ -311,22 +413,77 @@ export function LiquidScroll() {
     };
   }, [dragging]);
 
+  /**
+   * Keyboard scrubbing.
+   *
+   * Dragging was the only way to operate this rail, which fails WCAG 2.2
+   * SC 2.5.7 (Dragging Movements) outright — the criterion asks for a
+   * single-pointer or keyboard alternative to every drag, and there was none.
+   *
+   * `data-rail-key` is set on the event so SectionSettle can tell a rail scrub
+   * from an ordinary key press. Without it the settle aborts on keydown and then
+   * re-arms 120ms later, so every arrow press would be quietly dragged back to
+   * the nearest section start — not merely cancelled, actively undone.
+   */
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const max = scrollMax();
+    if (max <= 0) return;
+
+    const page = window.innerHeight * 0.9;
+    const step = window.innerHeight * 0.15;
+    const moves: Record<string, number | "start" | "end"> = {
+      ArrowDown: step,
+      ArrowUp: -step,
+      PageDown: page,
+      PageUp: -page,
+      Home: "start",
+      End: "end",
+    };
+    const move = moves[event.key];
+    if (move === undefined) return;
+
+    event.preventDefault();
+    const target =
+      move === "start"
+        ? 0
+        : move === "end"
+          ? max
+          : Math.max(0, Math.min(max, window.scrollY + move));
+    window.dispatchEvent(new CustomEvent(RAIL_SCRUB_EVENT));
+    window.scrollTo({ top: target, behavior: "instant" });
+  };
+
+  // Geometry for the static parts of the rail. `railTop` is spelled out rather
+  // than named `top`: a bare `top` resolves to `window.top` at module scope, so
+  // deleting the local silently type-checks against the wrong thing.
   const span = height * (1 - RAIL_PAD * 2);
-  const top = height * RAIL_PAD;
-  const nodes = sections.map((section, i) => ({
-    id: section.id,
-    y: top + (i / (sections.length - 1)) * span,
-  }));
+  const railTop = height * RAIL_PAD;
+
 
   return (
     <div
       ref={railRef}
-      aria-hidden
+      // A real control, not decoration. It was `aria-hidden` while being the
+      // page's only scroll affordance, so assistive tech was told to ignore the
+      // one thing that could move the document.
+      role="scrollbar"
+      aria-label="Page scroll"
+      aria-orientation="vertical"
+      aria-controls="main"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      // Both kept current imperatively — see the effect above.
+      aria-valuenow={0}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      // The rail is the least discoverable control on the page — a shape with
+      // no affordance until you happen to press it. The label is the fix.
+      data-cursor="Drag"
       onPointerDown={(event) => {
         event.preventDefault();
         setDragging(true);
       }}
-      className="fixed top-1/2 right-1 z-40 hidden h-[42vh] w-7 -translate-y-1/2 cursor-grab touch-none active:cursor-grabbing sm:block"
+      className="rail fixed top-1/2 right-1 z-40 hidden h-[42vh] w-7 -translate-y-1/2 cursor-grab touch-none active:cursor-grabbing sm:block"
     >
       <svg
         width="28"
@@ -338,38 +495,38 @@ export function LiquidScroll() {
           <filter id="liquid-goo" x="-80%" y="-25%" width="260%" height="150%">
             {/* Runnier than a classic goo: less blur and a harder alpha ramp, so
                 necks break sooner and the droplets read as low-viscosity. */}
-            <feGaussianBlur in="SourceGraphic" stdDeviation="3.4" result="b" />
-            <feColorMatrix
-              in="b"
-              type="matrix"
-              values="1 0 0 0 0
-                      0 1 0 0 0
-                      0 0 1 0 0
-                      0 0 0 26 -12"
+            <feGaussianBlur
+              in="SourceGraphic"
+              stdDeviation={GOO.sigma}
+              result="b"
             />
+            <feColorMatrix in="b" type="matrix" values={gooMatrix(GOO)} />
           </filter>
         </defs>
 
         <line
           x1={CX}
           x2={CX}
-          y1={top}
-          y2={top + span}
+          y1={railTop}
+          y2={railTop + span}
           stroke="var(--hairline)"
           strokeWidth="1"
         />
 
         <g ref={groupRef} filter="url(#liquid-goo)">
-          {nodes.map((node) => (
-            <circle
-              key={node.id}
-              cx={CX}
-              cy={node.y}
-              r="3"
-              fill="var(--signal)"
-              opacity="0.6"
-            />
-          ))}
+          {/* There used to be six section markers here — `r="3"` at `opacity="0.6"`,
+              inside this filtered group. They never rendered, in any browser, since
+              the day they were written: a 3px disc blurred by sigma 3.4 peaks at
+              alpha 0.32, 0.19 after the opacity, against an isocontour of 0.46. The
+              file's own header derives that threshold and the code twelve lines
+              below now imports it, which makes their absence the more embarrassing.
+
+              They are deleted rather than fixed because they could not have been
+              placed honestly either: `sections` holds six ids, but the four chapters
+              are their own sections (`gods-eye`, `nyay`, …) and none of them is in
+              that list — so real offsets would bunch five dots into the top third
+              above a ~9,600px void. The rail is a progress body; naming and jumping
+              belong to the spine in the left gutter. */}
 
           {/* Tail first, so the lead paints over it where they overlap. */}
           {[2, 1, 0].map((i) => (
@@ -377,7 +534,7 @@ export function LiquidScroll() {
               key={i}
               data-blob={i}
               cx={CX}
-              cy={top}
+              cy={railTop}
               r={BASE_R}
               fill="var(--signal)"
             />
@@ -388,7 +545,7 @@ export function LiquidScroll() {
               key={`spark-${i}`}
               data-spark={i}
               cx={CX}
-              cy={top}
+              cy={railTop}
               r="0"
               fill="var(--signal)"
             />

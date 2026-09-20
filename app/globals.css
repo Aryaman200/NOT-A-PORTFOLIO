@@ -268,9 +268,18 @@
   transform: scaleY(1);
 }
 
-/* Primary actions sit at ink weight at rest so they read first. */
+/* Primary actions sit at ink weight at rest so they read first.
+
+   They are also the only things on the page that lean toward a nearby pointer —
+   see the cursor section below. The transform transition lives here rather than
+   being written inline, so that when the cursor clears the inline transform the
+   control eases home instead of snapping. */
 .press-strong {
   border-color: var(--foreground);
+  transition:
+    border-color 0.2s ease,
+    color 0.16s 0.06s ease,
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Text links: a rule draws in from the left on the same curve as the
@@ -318,9 +327,113 @@
   background: var(--hairline);
 }
 
+/* ============================================================
+   Focus
+
+   `.press` inverts and `.nav-link` draws its rule, and both are
+   better indicators than a ring — they stay. What had nothing at
+   all were the plain links: the contact rows, the footer, the 404
+   list and the case-study "next". Those get a real ring here.
+
+   The rail is the one control that cannot take a ring: it is a
+   filtered SVG group, and an outline on the wrapper would be
+   painted through the goo. It gets a hairline track instead, which
+   is the same shape its own body already has.
+   ============================================================ */
+:where(a, button, [tabindex]):not(.press):not(.nav-link):not(
+    .rail
+  ):focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+.rail:focus-visible {
+  outline: none;
+}
+.rail:focus-visible::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  /* Sits behind the liquid rather than around the box, so the focus state
+     reads as the track lighting up. */
+  box-shadow: inset 0 0 0 1px var(--signal);
+}
+
+/* The skip link. Off-screen until focused, then it lands as a real control in
+   the top-left — the first tab stop on the page, ahead of the header. */
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 80;
+  padding: 0.75rem 1.25rem;
+  background: var(--background);
+  transform: translateY(-160%);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+/* ============================================================
+   Scroll progress — where the rail cannot go
+
+   The rail is `hidden sm:block`, and it freezes entirely under
+   reduced motion (the droplet loop returns early). The native
+   scrollbar is hidden globally. So on a phone, and for any
+   motion-sensitive reader on any width, the page had no position
+   indicator at all — which for a ~13,000px document is a genuine
+   orientation failure, not a missing flourish.
+
+   This is a scroll-driven CSS animation: no JavaScript, no scroll
+   listener, and it runs off the main thread. Browsers without
+   `animation-timeline` simply never advance it, so it stays at
+   zero width and is invisible rather than wrong.
+   ============================================================ */
+@supports (animation-timeline: scroll()) {
+  .scroll-progress {
+    position: fixed;
+    inset-inline: 0;
+    top: 0;
+    z-index: 50;
+    height: 2px;
+    background: var(--signal);
+    transform-origin: left;
+    scale: 0 1;
+    animation: scroll-progress linear both;
+    animation-timeline: scroll(root block);
+    display: none;
+  }
+
+  @keyframes scroll-progress {
+    to {
+      scale: 1 1;
+    }
+  }
+
+  /* Only where the rail is absent or frozen. */
+  @media (max-width: 39.99rem) {
+    .scroll-progress {
+      display: block;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-progress {
+      display: block;
+      /* A scroll-driven animation is not motion the reader did not ask for —
+         it only ever reflects the scrolling they are already doing. But the
+         global reduce rule below zeroes every animation duration, so it has to
+         be exempted or it would never advance. */
+      animation-duration: auto !important;
+    }
+  }
+}
+
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   html {
     @apply font-sans;
@@ -373,6 +486,307 @@
   }
 }
 
+/* ============================================================
+   The pointer, replaced by a small liquid
+
+   The same substance as the scroll rail: a chain of circles under
+   a blur-and-threshold filter, welding into one body when they
+   overlap and breaking apart when they separate. The physics and
+   the filter live in components/chrome/cursor.tsx; this is only
+   the chrome around them.
+
+   **The system cursor is gone, not accompanied.** The rule that
+   hides it is scoped to `html.liquid-cursor`, and that class is
+   added by the component when it mounts — never statically. A
+   reader whose JavaScript failed, or who is on a touch device or
+   has reduced motion set, never gets the class and keeps their
+   real pointer. Hiding it from the stylesheet would mean a page
+   with no pointer at all whenever the script did not arrive.
+   ============================================================ */
+html.liquid-cursor,
+html.liquid-cursor * {
+  cursor: none !important;
+}
+
+[data-cursor-liquid] {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 70; /* above the entrance curtain, so it is never swallowed */
+  pointer-events: none;
+  /* The filter region extends well past the circles, and the SVG is the size of
+     the viewport — without this, the region can push the document wider. */
+  overflow: visible;
+  transition: opacity 0.22s ease;
+}
+
+/* Hidden until the pointer has actually been somewhere, otherwise the chain
+   sits in the middle of the screen on load like a dead pixel. */
+[data-cursor-liquid][data-seen="false"] {
+  opacity: 0;
+}
+
+/* Press. The body contracts rather than flashing — a squeeze, which is what
+   the material would do, and the same physical read as the `.press` fill
+   rising from its bottom edge. */
+[data-cursor-liquid] > g {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity 0.16s ease;
+}
+[data-cursor-liquid] > g[data-pressed="true"] {
+  opacity: 0.66;
+}
+
+/* The label rides the lead droplet but is not part of it: running type through
+   a blur-and-threshold filter destroys it. */
+[data-cursor-label] {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 71;
+  pointer-events: none;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--text-micro);
+  letter-spacing: var(--text-micro--letter-spacing);
+  text-transform: uppercase;
+  color: var(--primary-foreground);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+[data-cursor-label][data-shown="true"] {
+  opacity: 1;
+  /* Delayed so the word arrives once the liquid has swelled into a disc big
+     enough to hold it, rather than over a blob still growing. */
+  transition-delay: 0.12s;
+}
+
+/* ============================================================
+   The opening — curtain lift
+
+   A bone curtain covers the viewport with the name already set
+   behind it, and a signal-coloured edge sweeps it away to the
+   right. The type is not faded in; it is uncovered. This is the
+   BlockReveal mechanic at viewport scale — the bar travels and the
+   writing is behind it when it leaves — so the site's largest
+   gesture is the same gesture as its headings rather than a
+   second idea.
+
+   **It is a curtain and not a fade for a load reason.** The name
+   is the LCP element. An element hidden behind an opaque cover has
+   still painted, so LCP lands at first paint as it always did; an
+   element at `opacity: 0` has not, so fading it in moves the
+   metric by however long the hold lasts. The covering version is
+   the one that costs nothing.
+
+   The hold is an attribute on <html>, written by a blocking inline
+   script before first paint and cleared by components/chrome/
+   entrance.tsx — see lib/entrance.ts for why it has to be inline.
+
+   Everything here is scoped under `[data-entrance]`, and that
+   attribute is only ever set when the sequence is going to run. No
+   script, storage blocked, reduced motion, a case-study route, or
+   a second visit within the session all mean it is never written,
+   these rules never match, and the curtain stays `display: none`.
+   The page's resting state is "content visible"; the entrance is
+   the exception.
+
+   The terrain is deliberately not held. It fades itself in from
+   its own render loop and is already going when the curtain lifts,
+   so the ground is live rather than arriving.
+   ============================================================ */
+.entrance-curtain,
+.entrance-edge {
+  /* The default. A visitor who is not getting the sequence never has these in
+     the layer tree at all, which is also why they can be server-rendered
+     unconditionally without a hydration branch. */
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60; /* above the header (40) and the scroll rail (40) */
+  /* Never a blocker. Once the wipe finishes the curtain is still in the tree at
+     zero width, and an invisible element that eats clicks is the kind of bug
+     that is only ever found by the person it happens to. */
+  pointer-events: none;
+}
+
+.entrance-curtain {
+  background: var(--background);
+}
+
+/* The leading edge — the signal-coloured bar from BlockReveal, full height.
+   A separate element rather than a border on the curtain: the curtain is
+   clipped, so anything drawn on it is clipped away with it. */
+.entrance-edge {
+  inset-inline-end: auto;
+  width: 2px;
+  background: var(--signal);
+}
+
+html[data-entrance="holding"] .entrance-curtain,
+html[data-entrance="ready"] .entrance-curtain,
+html[data-entrance="holding"] .entrance-edge,
+html[data-entrance="ready"] .entrance-edge {
+  /* Both states paint, so `display` never changes at the moment of release —
+     a display change on the same frame cancels the transition outright. */
+  display: block;
+}
+
+html[data-entrance="holding"] .entrance-curtain {
+  clip-path: inset(0 0 0 0);
+}
+html[data-entrance="holding"] .entrance-edge {
+  transform: translateX(0);
+}
+
+html[data-entrance="ready"] .entrance-curtain {
+  clip-path: inset(0 0 0 100%);
+  transition: clip-path 780ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+html[data-entrance="ready"] .entrance-edge {
+  transform: translateX(100vw);
+  transition: transform 780ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The settle. The name is already in position and at full opacity — it only
+   rises the last few pixels as it is uncovered, so the curtain appears to set
+   it down. No opacity on this stage, for the LCP reason above. */
+[data-entrance-stage] {
+  transition:
+    opacity 620ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 820ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html[data-entrance="holding"] [data-entrance-stage] {
+  /* No transition on the way in — the hold is the starting state, not an
+     animation towards it. Without this the elements visibly animate *out* on
+     load before animating back in. */
+  transition: none;
+}
+
+html[data-entrance="holding"] [data-entrance-stage="1"] {
+  transform: translateY(14px);
+}
+
+/* The supporting column does fade, and follows the name by one beat. It is not
+   the LCP element, and a second thing arriving with the same weight as the name
+   would flatten the hierarchy the hero is built on. */
+html[data-entrance="holding"] [data-entrance-stage="2"] {
+  opacity: 0;
+  transform: translateY(16px);
+}
+html[data-entrance="ready"] [data-entrance-stage="2"] {
+  transition-delay: 220ms;
+}
+
+/* ============================================================
+   Route transitions — shell <-> lab
+
+   Two mechanics, and they do different jobs.
+
+   MORPH pairs the running artifact and the project title between a
+   homepage chapter and its case study. The canvas the reader was
+   just driving travels into the case hero rather than the two pages
+   swapping, which is the whole argument for routes over anchors
+   here: same object, gone deeper.
+
+   SLIDE encodes history. Forward moves content left, back moves it
+   right — the film convention, and violating it reads as
+   disorienting even to people who could not name why.
+
+   Both degrade to an instant swap where the View Transitions API is
+   missing. Nothing here is load-bearing.
+   ============================================================ */
+
+/* The transition overlay swallows pointer events for its whole duration.
+   Clicks during a 400ms animation are simply lost, which on a page with a
+   fixed header is a real miss. */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-group(.morph) {
+  animation-duration: 420ms;
+}
+
+/* The blur hides pixel interpolation while a live canvas is being scaled
+   between two very different boxes — without it the artifact visibly
+   resamples mid-flight. */
+::view-transition-image-pair(.morph) {
+  animation-name: morph-blur;
+}
+
+@keyframes morph-blur {
+  30% {
+    filter: blur(3px);
+  }
+}
+
+::view-transition-old(.nav-forward) {
+  --slide-offset: -60px;
+  animation:
+    150ms ease-in both route-fade reverse,
+    400ms ease-in-out both route-slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --slide-offset: 60px;
+  animation:
+    210ms ease-out 150ms both route-fade,
+    400ms ease-in-out both route-slide;
+}
+
+::view-transition-old(.nav-back) {
+  --slide-offset: 60px;
+  animation:
+    150ms ease-in both route-fade reverse,
+    400ms ease-in-out both route-slide reverse;
+}
+::view-transition-new(.nav-back) {
+  --slide-offset: -60px;
+  animation:
+    210ms ease-out 150ms both route-fade,
+    400ms ease-in-out both route-slide;
+}
+
+/* Asymmetric on purpose: the outgoing page leaves quickly so it stops
+   competing for attention, the incoming one arrives more slowly and only
+   after the exit has finished. */
+@keyframes route-fade {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes route-slide {
+  from {
+    translate: var(--slide-offset);
+  }
+  to {
+    translate: 0;
+  }
+}
+
+/* The header is the one thing that must not move — it is the reader's fixed
+   reference for understanding that the content slid, not the viewport. The
+   old snapshot is dropped outright; leaving it in flashes two headers. */
+::view-transition-group(site-header) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header) {
+  display: none;
+}
+::view-transition-new(site-header) {
+  animation: none;
+}
+
 /* Reduced motion is honoured globally. v2 explicitly defeated this
    (`this.RM = false`, "motion is core"); that was an accessibility
    regression and is not carried forward. Motion stills, nothing is
@@ -387,5 +801,16 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* View transition pseudo-elements live outside the document tree, so the
+     universal selector above never reaches them. Directional slides are the
+     most common motion-sensitivity trigger on the site; zeroing the duration
+     leaves the browser's own instant swap, which is the correct fallback. */
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }
