@@ -264,7 +264,13 @@ export default function TrafficGrid() {
         ref={canvasRef}
         className="min-h-0 flex-1"
         role="img"
-        aria-label={`City grid simulation: ${density} vehicles, adaptive signals ${adaptive ? "on" : "off"}, throughput ${metrics.throughput} vehicles per minute, ${metrics.flow}% of vehicles moving.`}
+        // The figures are the toy model's own, and the label has to say so.
+        // It previously read "throughput 5 vehicles per minute" with no framing,
+        // which announced a simulated number as a measured result — to screen
+        // reader users only, and on a project registry whose header rule is "no
+        // invented numbers". Sighted readers get the same framing from
+        // `artifactNote` above the canvas.
+        aria-label={`Simulated city grid. In this toy model: ${density} vehicles, adaptive signals ${adaptive ? "on" : "off"}, modelled throughput ${metrics.throughput} vehicles per minute, ${metrics.flow}% of vehicles moving. These are the simulation's figures, not measurements from a real junction.`}
       />
 
       <div className="flex flex-wrap items-center gap-x-8 gap-y-4 font-mono text-micro uppercase">

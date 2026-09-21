@@ -106,6 +106,51 @@ const VREF = 34;
 const MAX_SQUASH = 0.3;
 
 /**
+ * The click.
+ *
+ * Pressing used to do one thing: drop the whole group to `opacity: 0.66` in
+ * CSS. On a shape that is already a soft accent-coloured blob that is close to
+ * invisible, and it was the wrong kind of feedback anyway — a dimmer cursor is
+ * a rendering change, not an impact.
+ *
+ * This is an impact. The body contracts by `PRESS_DIP` and springs back as the
+ * dip decays, and a ring of droplets is seeded *coincident* at the click point
+ * and thrown outward. Because they start on top of each other they are one
+ * welded blob on the first frame, and the filter tears them into separate
+ * droplets as they separate — the split is the filter doing it, not an
+ * animation of a ring.
+ *
+ * `SPLASH_R1` is above `FLOOR_R`, so the droplets shrink as they fly without
+ * ever crossing the isocontour. The fade is group `opacity`, which in the
+ * filter pipeline applies to the *filtered result* — fading the circles
+ * themselves would push their alpha down through the threshold and make the
+ * splash pop out of existence part-way through its travel, which is the same
+ * failure the floor exists to prevent.
+ */
+const SPLASH_N = 7;
+const SPLASH_MS = 430;
+/** px the ring travels before it is gone. */
+const SPLASH_REACH = 40;
+const SPLASH_R0 = 10;
+const SPLASH_R1 = FLOOR_R * 1.05;
+/**
+ * Fraction the body contracts on the press, and how long it takes to spring
+ * back once the button is released.
+ *
+ * Wall-clock, not a per-frame decay. The first version multiplied by 0.84 each
+ * frame, which is only a duration if every machine runs at the same rate —
+ * measured here the loop runs at 241fps, where `0.84 ** n` is spent in ~110ms
+ * against ~430ms on a 60Hz display. Same code, four times the effect. The
+ * droplet chain above has the same property and is tuned around it; a press is
+ * a duration and has no excuse.
+ *
+ * It holds while the button is down rather than decaying from the press, so a
+ * held click stays contracted instead of quietly relaxing under the finger.
+ */
+const PRESS_DIP = 0.24;
+const PRESS_MS = 260;
+
+/**
  * The caret.
  *
  * `CARET_R` is sized so that squeezing it still clears the floor: the narrow
@@ -152,6 +197,7 @@ export function Cursor() {
   const [size, setSize] = useState({ w: 0, h: 0 });
 
   const groupRef = useRef<SVGGElement>(null);
+  const splashRef = useRef<SVGGElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
   // Read by the rAF loop, which must not be re-subscribed on every mode change.
   const modeRef = useRef<Mode>({ kind: "idle" });
@@ -209,10 +255,27 @@ export function Cursor() {
     );
     if (blobs.some((b) => !b)) return;
 
+    // Same indexing discipline as the chain above, for the same reason.
+    const splashGroup = splashRef.current;
+    const splashDrops = Array.from({ length: SPLASH_N }, (_, i) =>
+      splashGroup?.querySelector<SVGCircleElement>(`[data-splash="${i}"]`),
+    );
+
     let pointerX = window.innerWidth / 2;
     let pointerY = window.innerHeight / 2;
     let placed = false;
     let frame = 0;
+
+    /** 0 when no splash is running, else the timestamp of the press. */
+    let splashStart = 0;
+    let splashX = 0;
+    let splashY = 0;
+    /** Randomised per click, so repeated clicks do not stamp the same ring. */
+    let splashTurn = 0;
+    /** True while a button is down; the dip holds at full for as long as it is. */
+    let held = false;
+    /** Timestamp of the release the body is currently springing back from. */
+    let releasedAt = 0;
 
     const droplets: Droplet[] = PULL.map(() => ({
       x: pointerX,
@@ -283,6 +346,21 @@ export function Cursor() {
         }
       }
 
+      // Contract on the press, spring back over PRESS_MS after the release.
+      // Applied before the floor clamp below, so the dip can never take a
+      // droplet under it.
+      let press = 0;
+      if (held) {
+        press = 1;
+      } else if (releasedAt) {
+        const back = (now - releasedAt) / PRESS_MS;
+        if (back >= 1) releasedAt = 0;
+        // Cubic ease-out on the way back, so it leaves the dip quickly and
+        // arrives at rest without a visible stop.
+        else press = (1 - back) ** 3;
+      }
+      const pressDip = 1 - PRESS_DIP * press;
+
       const lead = droplets[0];
       const tail = droplets[droplets.length - 1];
       const spread = Math.hypot(tail.x - lead.x, tail.y - lead.y);
@@ -309,7 +387,7 @@ export function Cursor() {
 
         // The guarantee. Whatever the physics asked for, nothing is ever drawn
         // thin enough to fall through the filter's threshold and disappear.
-        d.r = Math.max(FLOOR_R, d.r);
+        d.r = Math.max(FLOOR_R, d.r * pressDip);
 
         // Squash across the axis of travel. In two dimensions that means
         // rotating into the velocity frame, scaling, and rotating back — a
@@ -351,6 +429,31 @@ export function Cursor() {
               `translate(${x} ${y}) scale(${CARET_SQUEEZE.toFixed(3)} 1.6) translate(${-d.x.toFixed(2)} ${-d.y.toFixed(2)})`
             : `rotate(${angle.toFixed(1)} ${x} ${y}) translate(${x} ${y}) scale(${sx} ${sy}) translate(${-d.x.toFixed(2)} ${-d.y.toFixed(2)}) rotate(${(-angle).toFixed(1)} ${x} ${y})`,
         );
+      }
+
+      if (splashGroup && splashStart) {
+        const age = (now - splashStart) / SPLASH_MS;
+        if (age >= 1) {
+          splashStart = 0;
+          splashGroup.style.opacity = "0";
+        } else {
+          // Fast out, slow to a stop — the throw carries its energy early.
+          const out = 1 - (1 - age) ** 3;
+          const dist = SPLASH_REACH * out;
+          const r = SPLASH_R0 + (SPLASH_R1 - SPLASH_R0) * out;
+          // Quadratic, so the ring is still solid while it is tearing apart
+          // and only gives up once it has travelled.
+          splashGroup.style.opacity = (1 - age * age).toFixed(3);
+
+          for (let i = 0; i < SPLASH_N; i++) {
+            const drop = splashDrops[i];
+            if (!drop) continue;
+            const a = splashTurn + (i / SPLASH_N) * Math.PI * 2;
+            drop.setAttribute("cx", (splashX + Math.cos(a) * dist).toFixed(2));
+            drop.setAttribute("cy", (splashY + Math.sin(a) * dist).toFixed(2));
+            drop.setAttribute("r", r.toFixed(2));
+          }
+        }
       }
 
       // The label rides the lead droplet. It sits outside the filtered group —
@@ -446,17 +549,40 @@ export function Cursor() {
       updateMagnet(target);
     };
 
-    const onDown = () => {
+    const onDown = (event: PointerEvent) => {
       group.dataset.pressed = "true";
+      held = true;
+      releasedAt = 0;
+
+      splashStart = performance.now();
+      splashX = event.clientX;
+      splashY = event.clientY;
+      splashTurn = Math.random() * Math.PI * 2;
+
+      // Seeded coincident, not on a ring. The first frame has to be one welded
+      // blob at the click point; the separation into droplets is then the
+      // filter's doing as they travel, which is the entire effect.
+      for (const drop of splashDrops) {
+        if (!drop) continue;
+        drop.setAttribute("cx", splashX.toFixed(2));
+        drop.setAttribute("cy", splashY.toFixed(2));
+        drop.setAttribute("r", String(SPLASH_R0));
+      }
     };
     const onUp = () => {
       group.dataset.pressed = "false";
+      if (held) releasedAt = performance.now();
+      held = false;
     };
     // The pointer leaving the window has to clear the mode and any leaning
     // control, or both are frozen in place until it returns.
     const onLeave = () => {
       placed = false;
       group.dataset.pressed = "false";
+      // A pointer that leaves the window mid-press never delivers its pointerup
+      // here, so without this the body stays contracted until the next click.
+      if (held) releasedAt = performance.now();
+      held = false;
       setSeen(false);
       setMode_({ kind: "idle" });
       clearMagnet();
@@ -512,6 +638,28 @@ export function Cursor() {
             <feColorMatrix in="b" type="matrix" values={gooMatrix(GOO)} />
           </filter>
         </defs>
+
+        {/* Under the body, so the chain paints over the splash where they
+            overlap. Its own filtered group rather than circles added to the
+            chain's: the splash fades, and fading has to happen to the filter
+            output, which means it has to be a group of its own. */}
+        <g
+          ref={splashRef}
+          data-cursor-splash
+          filter="url(#cursor-goo)"
+          style={{ opacity: 0 }}
+        >
+          {Array.from({ length: SPLASH_N }, (_, i) => (
+            <circle
+              key={i}
+              data-splash={i}
+              cx="-100"
+              cy="-100"
+              r={SPLASH_R0}
+              fill="var(--signal)"
+            />
+          ))}
+        </g>
 
         <g ref={groupRef} data-pressed="false" filter="url(#cursor-goo)">
           {/* Tail first, so the lead paints over it where they overlap. */}

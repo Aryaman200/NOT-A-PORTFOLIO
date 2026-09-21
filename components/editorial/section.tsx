@@ -9,8 +9,8 @@ import { BlockReveal } from "./block-reveal";
  * Two things were removed from this and are not coming back.
  *
  * A mono index line — `04 / CAPABILITIES` — sat above every title, restating
- * the heading immediately below it in smaller type. The spine already numbers
- * the sections, so it was the third time the same fact appeared on screen.
+ * the heading immediately below it in smaller type. The heading is already the
+ * largest thing on the screen; numbering it changes nothing about finding it.
  *
  * A right-aligned stat row: `ROWS 6`, `ENTRIES 3`, `UPDATED AUGUST 2026`. It
  * counted the rows of the thing you were already looking at. Both were the same
@@ -33,7 +33,8 @@ export function Section({
   return (
     <section
       id={id}
-      // scroll-mt clears the fixed header when jumping from the spine
+      // scroll-mt clears the fixed header when jumping here from the command
+      // palette, the footer links or a /#id deep link
       className={cn("scroll-mt-24 px-gutter py-section", className)}
     >
       <div className="mx-auto w-full max-w-[110rem]">

@@ -73,6 +73,11 @@ function Chapter({ project, index }: { project: Project; index: number }) {
       ref={ref}
       id={project.slug}
       aria-label={project.title}
+      // These frames paint `.dark` full-bleed, so anything fixed on top of one
+      // has to adopt the lab palette while it is covered. Nothing currently
+      // does — the marker is kept because the condition is real and the next
+      // fixed overlay will need to hit-test for it.
+      data-chapter
       // Shorter on phones: the pin window only needs to be long enough to read
       // the caption, and 210vh of scroll per project is punishing on a device
       // where each swipe covers less ground. Four chapters at 150vh was six

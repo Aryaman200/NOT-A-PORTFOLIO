@@ -1,8 +1,9 @@
 import { ImageResponse } from "next/og";
 import { getProject, projectSlugs } from "@/lib/projects";
+import { Contours, OG_SIZE, ogFonts } from "@/lib/og";
 
 export const alt = "Case study";
-export const size = { width: 1200, height: 630 };
+export const size = OG_SIZE;
 export const contentType = "image/png";
 
 export function generateStaticParams() {
@@ -20,13 +21,10 @@ const STATE_COPY = {
  *
  * Dark ground, because that is the ground the page itself sits on — a link
  * preview that does not match the page it opens is a small broken promise. The
- * homepage card is the bone counterpart; side by side in a chat client they read
- * as two halves of one system, which is the same argument globals.css makes.
+ * homepage card is the bone counterpart.
  *
- * Default sans rather than Instrument Serif, for the reason given on the
- * homepage card: a custom face here means a build-time network fetch or a font
- * binary in the repo, and neither is worth it for a static image that is mostly
- * seen at thumbnail size.
+ * Every field is read from lib/projects.ts, so a card can never claim a stack
+ * or a state the case study does not.
  */
 export default async function CaseOpengraphImage({
   params,
@@ -54,32 +52,18 @@ export default async function CaseOpengraphImage({
           background: "#070912",
           padding: "72px 80px",
           position: "relative",
+          fontFamily: "Inter",
         }}
       >
-        {/* Same contour motif as the homepage card, rotated into the dark
-            palette — periwinkle on navy instead of ultramarine on bone. */}
-        <svg
-          width="620"
-          height="630"
-          viewBox="0 0 620 630"
-          style={{ position: "absolute", right: 0, top: 0 }}
-        >
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <path
-              key={i}
-              d={`M0 ${700 + i * 46} C 200 ${520 + i * 46}, 380 ${430 + i * 46}, 620 ${230 + i * 46}`}
-              fill="none"
-              stroke="#7c8cff"
-              strokeWidth="2"
-              opacity={0.34 - i * 0.045}
-            />
-          ))}
-        </svg>
+        {/* Periwinkle on navy, against the homepage card's ultramarine on
+            bone — one motif, two palettes. */}
+        <Contours stroke="#7c8cff" />
 
         <div
           style={{
             display: "flex",
             gap: 28,
+            fontFamily: "JetBrains Mono",
             fontSize: 22,
             letterSpacing: "0.16em",
             textTransform: "uppercase",
@@ -90,15 +74,15 @@ export default async function CaseOpengraphImage({
           <div>{year}</div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div
             style={{
               display: "flex",
-              fontSize: 104,
+              fontFamily: "Instrument Serif",
+              fontSize: 116,
               lineHeight: 1,
-              letterSpacing: "-0.035em",
+              letterSpacing: "-0.015em",
               color: "#e8eaf2",
-              fontWeight: 600,
             }}
           >
             {title}
@@ -122,7 +106,8 @@ export default async function CaseOpengraphImage({
             style={{
               display: "flex",
               justifyContent: "space-between",
-              fontSize: 24,
+              fontFamily: "JetBrains Mono",
+              fontSize: 22,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
               color: "#8e93ad",
@@ -134,6 +119,6 @@ export default async function CaseOpengraphImage({
         </div>
       </div>
     ),
-    size,
+    { ...size, fonts: [...ogFonts] },
   );
 }

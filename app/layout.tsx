@@ -45,6 +45,21 @@ export const metadata: Metadata = {
     url: SITE_URL,
     locale: "en_GB",
   },
+  // Only `card`, deliberately.
+  //
+  // A `title` here used to pin every page's `twitter:title` to this one string:
+  // metadata is inherited, and `generateMetadata` on a case study overrides
+  // `openGraph.title` without touching `twitter`. So `/work/nyay` emitted
+  // `og:title` "Nyay — Aryaman Bhardwaj" and `twitter:title` "Aryaman Bhardwaj
+  // — AI Engineer", and on any client that prefers the `twitter:` tags all four
+  // case studies previewed under the homepage's name.
+  //
+  // Unset, `twitter:title` falls back to the page's own resolved `title`, which
+  // is what `twitter:description` was already doing correctly here for exactly
+  // the same reason — it was never set, so it was never pinned.
+  //
+  // No handle is claimed because none is listed anywhere on the site; the
+  // creator falls back to the `Person` in the JSON-LD instead.
   twitter: { card: "summary_large_image" },
   robots: { index: true, follow: true },
 };

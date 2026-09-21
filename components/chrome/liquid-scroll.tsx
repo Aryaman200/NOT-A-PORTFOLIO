@@ -525,8 +525,8 @@ export function LiquidScroll() {
               placed honestly either: `sections` holds six ids, but the four chapters
               are their own sections (`gods-eye`, `nyay`, …) and none of them is in
               that list — so real offsets would bunch five dots into the top third
-              above a ~9,600px void. The rail is a progress body; naming and jumping
-              belong to the spine in the left gutter. */}
+              above a ~9,600px void. The rail is a progress body and nothing else;
+              jumping by name belongs to the command palette. */}
 
           {/* Tail first, so the lead paints over it where they overlap. */}
           {[2, 1, 0].map((i) => (

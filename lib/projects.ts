@@ -14,6 +14,15 @@
  * **No invented numbers.** `numbers` is deliberately unpopulated. A figure you
  * gave yourself carries no information — the same reason the old capabilities
  * section's self-assigned scores were cut. Fill it when a figure is real.
+ *
+ * **The artifacts are illustrations, and `artifactNote` has to say so.** All
+ * four canvases are hand-written simulations with hardcoded inputs: eight fixed
+ * city coordinates on the globe, eight fixed scripts in the language flow, and
+ * a toy vehicle model whose throughput and flow percentages are computed by
+ * that model rather than measured from anything. They previously opened with
+ * "Live", which on a page that also says "Shipped" invites a reader to take
+ * them for production telemetry. A running canvas is a strong claim, and this
+ * registry's own rules apply to it exactly as they do to prose.
  */
 
 export type ArtifactId = "globe" | "convoy" | "traffic" | "language";
@@ -73,8 +82,7 @@ export const projects: Project[] = [
     title: "God's Eye",
     tagline:
       "Open-source intelligence gathered, reasoned over, and put on a globe you can read at a glance.",
-    artifactNote:
-      "Live — eight collection points, traffic routed between them.",
+    artifactNote: "Illustrative — eight fixed points, not live collection.",
     year: "2025",
     state: "shipped",
     stack: ["React", "FastAPI", "LLMs", "Three.js"],
@@ -115,7 +123,7 @@ export const projects: Project[] = [
     tagline:
       "Legal information that answers in the language the question was asked in.",
     artifactNote:
-      "Live — a query resolving through a shared representation, returning to every language.",
+      "Illustrative — a query resolving through a shared representation, drawn from a fixed set of scripts.",
     year: "2026",
     state: "research",
     stack: ["LLMs", "NLP", "Bhashini"],
@@ -158,7 +166,7 @@ export const projects: Project[] = [
     tagline:
       "Signal timing that responds to the queue in front of it instead of a fixed clock.",
     artifactNote:
-      "Interactive — change the density, switch adaptive off, watch throughput move.",
+      "Toy model — change the density, switch adaptive off, watch throughput move. Figures are the simulation's own.",
     year: "2025",
     state: "shipped",
     // Taken from the repository rather than described from memory: the backend
@@ -205,8 +213,7 @@ export const projects: Project[] = [
     title: "Convoy Mode",
     tagline:
       "A concept for Google Maps: groups travelling together on one shared route, nobody left behind.",
-    artifactNote:
-      "Interactive — brake the leader and watch the convoy stretch.",
+    artifactNote: "Toy model — brake the leader and watch the convoy stretch.",
     year: "2025",
     state: "concept",
     // Leaflet and WebSockets, not a proprietary maps SDK — the repo is the
@@ -240,7 +247,10 @@ export const projects: Project[] = [
       ],
       media: [],
       links: [
-        { label: "Source", href: "https://github.com/Aryaman200/Maps-Convoy-Feature" },
+        {
+          label: "Source",
+          href: "https://github.com/Aryaman200/Maps-Convoy-Feature",
+        },
       ],
     },
   },

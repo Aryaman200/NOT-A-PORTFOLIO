@@ -1,0 +1,59 @@
+# The gate the suite was written for.
+#
+# Everything the Playwright specs assert is something that was already broken
+# once and looked fine while it was: droplets drawn under their own filter's
+# visibility threshold, a scroll rail shipped `aria-hidden` while being the only
+# scroll affordance, an entrance that holds the whole page behind a curtain. All
+# of those are invisible to review and none of them are caught by a build.
+#
+# Only Chromium is installed. Every specification here is about this site's own
+# behaviour — filter arithmetic, keyboard paths, scroll-driven animation — not
+# about cross-engine differences, and the three projects in playwright.config.ts
+# already cover the axes that actually change the code paths: viewport, pointer
+# type and motion preference.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run's answer irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      # Chromium only, and `--with-deps` because the runner has none of the
+      # shared libraries a headless browser needs.
+      - run: npx playwright install --with-deps chromium
+
+      # playwright.config.ts builds and starts the app itself via `webServer`,
+      # with `reuseExistingServer` off under CI, so this is a production build
+      # every time rather than whatever a previous step left running.
+      - run: npm test
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

@@ -35,6 +35,11 @@ const DEADZONE = 3;
 /** ms of no scrolling before settling begins */
 const QUIET = 120;
 const DURATION = 460;
+/**
+ * ms the settle stands down for after a scroll-rail keypress. Comfortably
+ * longer than `QUIET`, so the scroll caused by the scrub cannot re-arm it.
+ */
+const SUPPRESS = 600;
 
 const easeOutExpo = (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
 
@@ -47,6 +52,8 @@ export function SectionSettle() {
     let quietTimer: ReturnType<typeof setTimeout>;
     let frame = 0;
     let animating = false;
+    /** performance.now() before which settling is refused — see `standDown`. */
+    let suppressUntil = 0;
 
     const cancel = () => {
       if (!animating) return;
@@ -56,6 +63,7 @@ export function SectionSettle() {
 
     const settle = () => {
       if (animating) return;
+      if (performance.now() < suppressUntil) return;
 
       // scroll-mt on the sections is 3rem; match it so the settle lands where a
       // jump from the header or the palette would.
@@ -125,17 +133,20 @@ export function SectionSettle() {
     };
 
     /**
-     * A scroll-rail keypress stands the settle down entirely, rather than
-     * aborting it.
+     * A scroll-rail keypress suppresses the settle for a window.
      *
-     * `abort` re-arms on a 120ms timer, which is correct for a wheel or a
-     * trackpad — you stop, and the page comes to rest on the nearest edge. It is
-     * wrong for someone arrow-keying the rail: they press, the settle cancels,
-     * and 120ms later it drags them back to where they were scrubbing away from.
-     * The scrub would be undone, not interrupted, and holding the key would
-     * fight the settle the whole way down.
+     * Clearing the pending timer is not enough, and measurably so: an arrow
+     * press scrolled 2px and was pulled straight back to 0, because the scroll
+     * the scrub *itself* causes fires `onScroll`, which arms a fresh settle
+     * 120ms later. The scrub was being undone by its own side effect, and a
+     * second press then did nothing at all because it was already at the
+     * section edge being dragged to.
+     *
+     * So the rail marks a deadline instead, and each keypress extends it — which
+     * also covers a held arrow key, where scroll events arrive continuously.
      */
     const standDown = () => {
+      suppressUntil = performance.now() + SUPPRESS;
       cancel();
       clearTimeout(quietTimer);
     };

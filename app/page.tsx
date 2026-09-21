@@ -1,4 +1,5 @@
 import { ViewTransition } from "react";
+import { jsonLd, personSchema, projectListSchema } from "@/lib/structured-data";
 import { TerrainBackdrop } from "@/components/lab/terrain-backdrop";
 import { Entrance } from "@/components/chrome/entrance";
 import { LiquidScroll } from "@/components/chrome/liquid-scroll";
@@ -26,6 +27,17 @@ import { Contact } from "@/components/sections/contact";
 export default function Home() {
   return (
     <>
+      {/* Derived from lib/content.ts and lib/projects.ts, so it cannot drift
+          from the visible copy — see lib/structured-data.ts. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLd(personSchema()) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLd(projectListSchema()) }}
+      />
+
       <TerrainBackdrop />
 
       {/* Home only. The sequence is built on the terrain and the name, and a
@@ -33,6 +45,13 @@ export default function Home() {
           putting a gate in front of itself. */}
       <Entrance />
 
+      {/* One position system, not two. A fixed section index in the left
+          gutter was built and removed: the rail already answers "how far", the
+          command palette already answers "take me there", and a second fixed
+          element on the opposite edge only answered "where" — at xl only, for a
+          page whose section headings are large enough to answer it themselves.
+          The rail's six marker dots stay deleted; they were sub-floor and had
+          never painted. */}
       <LiquidScroll />
       <SectionSettle />
       <SiteHeader />

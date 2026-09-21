@@ -9,7 +9,13 @@ import { Reveal } from "@/components/editorial/reveal";
 import { BlockReveal } from "@/components/editorial/block-reveal";
 import { Label } from "@/components/editorial/section";
 import { site } from "@/lib/content";
-import { getProject, nextProject, projects, projectSlugs } from "@/lib/projects";
+import { jsonLd, projectSchema } from "@/lib/structured-data";
+import {
+  getProject,
+  nextProject,
+  projects,
+  projectSlugs,
+} from "@/lib/projects";
 
 const STATE_COPY = {
   shipped: "Shipped",
@@ -85,6 +91,10 @@ export default async function CasePage({ params }: PageProps<"/work/[slug]">) {
       default="none"
     >
       <main className="flex-1 pt-12">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLd(projectSchema(project)) }}
+        />
         {/* ---- hero: the artifact, still running ---- */}
         <section className="px-gutter pt-[clamp(3rem,7vh,5rem)]">
           <div className="mx-auto w-full max-w-[110rem]">
@@ -261,24 +271,25 @@ export default async function CasePage({ params }: PageProps<"/work/[slug]">) {
           </section>
         ) : null}
 
-        <footer className="border-t border-hairline px-gutter py-12">
-          <div className="mx-auto flex w-full max-w-[110rem] flex-col gap-4 font-mono text-micro uppercase text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <Link
-              href="/#work"
-              transitionTypes={["nav-back"]}
-              className="nav-link text-foreground"
-            >
-              All work
-            </Link>
-            <a
-              href={`mailto:${site.email}`}
-              className="nav-link transition-colors hover:text-foreground"
-            >
-              {site.email}
-            </a>
-          </div>
-        </footer>
       </main>
+
+      <footer className="border-t border-hairline px-gutter py-12">
+        <div className="mx-auto flex w-full max-w-[110rem] flex-col gap-4 font-mono text-micro uppercase text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <Link
+            href="/#work"
+            transitionTypes={["nav-back"]}
+            className="nav-link text-foreground"
+          >
+            All work
+          </Link>
+          <a
+            href={`mailto:${site.email}`}
+            className="nav-link transition-colors hover:text-foreground"
+          >
+            {site.email}
+          </a>
+        </div>
+      </footer>
     </ViewTransition>
   );
 }

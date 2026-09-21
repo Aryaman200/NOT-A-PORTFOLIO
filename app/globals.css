@@ -195,9 +195,15 @@
   --sidebar-ring: #7c8cff;
 }
 
-/* At xl the fixed section index moves into the left gutter, so the gutter has
-   to be wide enough to hold it — including its hover labels — without ever
-   overlapping the text column. Below xl the index is hidden and 7vw is right. */
+/* This was sized to hold a fixed section index in the left gutter. The index is
+   gone — the scroll rail already reports position and the command palette
+   already jumps by name, and a second fixed element on the opposite edge was
+   two chrome elements answering one question.
+
+   The measure stays. 7vw alone gives a 100px gutter at 1280 and the floor lifts
+   it to 144px, which is what keeps a ~110rem column from running to the edges
+   on the widths where this layout is most open. It is now a margin, not a
+   container, and nothing is positioned inside it. */
 @media (min-width: 80rem) {
   :root {
     --spacing-gutter: clamp(9rem, 7vw, 12rem);
@@ -373,7 +379,11 @@
   transform: translateY(-160%);
   transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.skip-link:focus-visible {
+/* `:focus` rather than `:focus-visible`. A skip link is only ever reached by
+   keyboard, and tying its appearance to the browser's focus-visible heuristic
+   means it can be focused-but-invisible — which is worse than not having one,
+   because the reader tabs onto a control they cannot see. */
+.skip-link:focus {
   transform: translateY(0);
 }
 
@@ -534,8 +544,17 @@ html.liquid-cursor * {
   transform-origin: center;
   transition: opacity 0.16s ease;
 }
+/* The splash writes its own opacity every frame. A transition here would put a
+   160ms ease in front of each of those writes and smear the whole 430ms fade
+   into mush — the curve is the animation, so nothing may interpolate it. */
+[data-cursor-liquid] > g[data-cursor-splash] {
+  transition: none;
+}
+/* The press is carried by the contraction and the splash in cursor.tsx. This
+   is only a supporting shade — at the old 0.66 it was the whole effect, and a
+   cursor that dims is not a cursor that was clicked. */
 [data-cursor-liquid] > g[data-pressed="true"] {
-  opacity: 0.66;
+  opacity: 0.84;
 }
 
 /* The label rides the lead droplet but is not part of it: running type through

@@ -159,7 +159,7 @@ export default function IntelGlobe() {
       ref={canvasRef}
       className="size-full"
       role="img"
-      aria-label="Rotating globe plotting intelligence stations in eight cities, with signal traffic arcing between them."
+      aria-label="Illustration: a rotating globe plotting eight fixed city markers, with arcs drawn between them. The points and traffic are hardcoded, not live collection."
     />
   );
 }

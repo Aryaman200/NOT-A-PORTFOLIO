@@ -127,7 +127,6 @@ export default function TerrainField({
     const SEG = mobile ? 28 : 72;
     /** ms between height-field rebuilds. The render stays at full rate. */
     const REBUILD_MS = mobile ? 110 : 70;
-    const DUST = mobile ? 70 : 140;
     const geometry = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
     geometry.rotateX(-Math.PI / 2);
 
@@ -178,26 +177,17 @@ export default function TerrainField({
     mesh.frustumCulled = false;
     scene.add(mesh);
 
-    const dustPositions = new Float32Array(DUST * 3);
-    for (let i = 0; i < DUST; i++) {
-      dustPositions[i * 3] = (Math.random() - 0.5) * 620;
-      dustPositions[i * 3 + 1] = Math.random() * 100 + 6;
-      dustPositions[i * 3 + 2] = (Math.random() - 0.5) * 620;
-    }
-    const dustGeometry = new THREE.BufferGeometry();
-    dustGeometry.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(dustPositions, 3),
-    );
-    const dustMaterial = new THREE.PointsMaterial({
-      size: 1.4,
-      color: 0x2436d8,
-      transparent: true,
-      opacity: 0.3,
-      fog: true,
-    });
-    const dust = new THREE.Points(dustGeometry, dustMaterial);
-    scene.add(dust);
+    /* A field of 140 `THREE.Points` drifted above the terrain here, meant to
+       read as dust. It could not: `PointsMaterial` with no `map` rasterises the
+       entire point sprite quad, so every particle was a hard-edged axis-aligned
+       square — 1.4px of solid blue with corners, against a wireframe mesh whose
+       whole character is thin diagonal lines. Rotating the cloud on y only made
+       the squares more obvious, because they never rotate with it.
+
+       Removed rather than fixed. Making them round costs a radial-alpha texture
+       or a custom shader with a `gl_PointCoord` discard, and buys a haze the
+       terrain does not need — the mesh already carries the depth, and the fog
+       already does the distance. */
 
     const resize = () => {
       renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -227,8 +217,6 @@ export default function TerrainField({
         window.removeEventListener("resize", resize);
         geometry.dispose();
         material.dispose();
-        dustGeometry.dispose();
-        dustMaterial.dispose();
         renderer.dispose();
       };
     }
@@ -251,7 +239,6 @@ export default function TerrainField({
       progress += (target - progress) * 0.09;
 
       placeCamera(progress, seconds);
-      dust.rotation.y = seconds * 0.014;
 
       // Heights regenerate at ~14fps; the camera and the render stay at full
       // rate. The flow is slow enough that the difference is invisible, and it
@@ -328,8 +315,6 @@ export default function TerrainField({
       canvas.removeEventListener("webglcontextlost", onContextLost);
       geometry.dispose();
       material.dispose();
-      dustGeometry.dispose();
-      dustMaterial.dispose();
       renderer.dispose();
     };
   }, [scrubDistance]);
