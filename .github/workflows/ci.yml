@@ -38,6 +38,11 @@ jobs:
 
       - run: npm ci
 
+      # `typecheck` runs `next typegen` first. `LayoutProps` and `PageProps`
+      # are globals Next generates into `.next/types`, which tsconfig.json
+      # includes — so on a machine that has built once this passes either way,
+      # and on a fresh checkout `tsc` alone cannot find them. That is exactly
+      # what the first run of this workflow failed on.
       - run: npm run typecheck
 
       - run: npm run lint
